@@ -77,6 +77,46 @@ CourseChangeCallback (std::string path, Ptr<const MobilityModel> model)
   std::cout << "CourseChange " << path << " x=" << position.x << ", y=" << position.y << ", z=" << position.z << std::endl;
 }
 
+class AdHocNetwork
+{
+  public:
+    NodeContainer backbone;
+    NetDeviceContainer backboneDevices;
+    WifiHelper wifi;
+    WifiMacHelper mac;
+    YansWifiPhyHelper wifiPhy;
+    YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
+    OlsrHelper olsr;
+    InternetStackHelper internet;
+    Ipv4AddressHelper ipAddrs;
+    MobilityHelper mobility;
+
+  
+    AdHocNetwork (uint32_t backboneNodes){
+        backbone.Create (backboneNodes);
+        mac.SetType ("ns3::AdhocWifiMac");
+        wifiPhy.SetChannel (wifiChannel.Create ());
+        backboneDevices = wifi.Install (wifiPhy, mac, backbone);
+        internet.SetRoutingHelper (olsr); 
+        internet.Install (backbone);        
+        ipAddrs.SetBase ("192.168.0.0", "255.255.255.0");
+        ipAddrs.Assign (backboneDevices);
+        mobility.SetPositionAllocator ("ns3::GridPositionAllocator",
+                                      "MinX", DoubleValue (20.0),
+                                      "MinY", DoubleValue (20.0),
+                                      "DeltaX", DoubleValue (20.0),
+                                      "DeltaY", DoubleValue (20.0),
+                                      "GridWidth", UintegerValue (5),
+                                      "LayoutType", StringValue ("RowFirst"));
+        mobility.SetMobilityModel ("ns3::RandomDirection2dMobilityModel",
+                                  "Bounds", RectangleValue (Rectangle (-500, 500, -500, 500)),
+                                  "Speed", StringValue ("ns3::ConstantRandomVariable[Constant=2]"),
+                                  "Pause", StringValue ("ns3::ConstantRandomVariable[Constant=0.2]"));
+        mobility.Install (backbone);
+    };
+};
+
+
 int
 main (int argc, char *argv[])
 {
@@ -124,74 +164,8 @@ main (int argc, char *argv[])
   //                                                                       //
   ///////////////////////////////////////////////////////////////////////////
 
-  //
-  // Create a container to manage the nodes of the adhoc (backbone) network.
-  // Later we'll create the rest of the nodes we'll need.
-  //
-  NodeContainer backbone;
-  backbone.Create (backboneNodes);
-  //
-  // Create the backbone wifi net devices and install them into the nodes in
-  // our container
-  //
-  WifiHelper wifi;
-  WifiMacHelper mac;
-  mac.SetType ("ns3::AdhocWifiMac");
-  wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager","DataMode", StringValue ("OfdmRate54Mbps"));
-  YansWifiPhyHelper wifiPhy;
-
-  YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
-  wifiPhy.SetChannel (wifiChannel.Create ());
-  NetDeviceContainer backboneDevices = wifi.Install (wifiPhy, mac, backbone);
-
-  // We enable OLSR (which will be consulted at a higher priority than
-  // the global routing) on the backbone ad hoc nodes
-  NS_LOG_INFO ("Enabling OLSR routing on all backbone nodes");
-  OlsrHelper olsr;
-  //
-  // Add the IPv4 protocol stack to the nodes in our container
-  //
-  InternetStackHelper internet;
-  internet.SetRoutingHelper (olsr); // has effect on the next Install ()
-  internet.Install (backbone);
-
-  //
-  // Assign IPv4 addresses to the device drivers (actually to the associated
-  // IPv4 interfaces) we just created.
-  //
-  Ipv4AddressHelper ipAddrs;
-  ipAddrs.SetBase ("192.168.0.0", "255.255.255.0");
-  ipAddrs.Assign (backboneDevices);
-
-  //
-  // The ad-hoc network nodes need a mobility model so we aggregate one to
-  // each of the nodes we just finished building.
-  //
-  MobilityHelper mobility;
-  mobility.SetPositionAllocator ("ns3::GridPositionAllocator",
-                                 "MinX", DoubleValue (20.0),
-                                 "MinY", DoubleValue (20.0),
-                                 "DeltaX", DoubleValue (20.0),
-                                 "DeltaY", DoubleValue (20.0),
-                                 "GridWidth", UintegerValue (5),
-                                 "LayoutType", StringValue ("RowFirst"));
-  mobility.SetMobilityModel ("ns3::RandomDirection2dMobilityModel",
-                             "Bounds", RectangleValue (Rectangle (-500, 500, -500, 500)),
-                             "Speed", StringValue ("ns3::ConstantRandomVariable[Constant=2]"),
-                             "Pause", StringValue ("ns3::ConstantRandomVariable[Constant=0.2]"));
-  mobility.Install (backbone);
-
-
-  ///////////////////////////////////////////////////////////////////////////
-  //                                                                       //
-  // Construct the mobile networks                                         //
-  //                                                                       //
-  ///////////////////////////////////////////////////////////////////////////
-
-  // Reset the address base-- all of the 802.11 networks will be in
-  // the "10.0" address space
-  ipAddrs.SetBase ("10.0.0.0", "255.255.255.0");
-
+  AdHocNetwork myadhoc (backboneNodes);
+  
   for (uint32_t i = 0; i < backboneNodes; ++i)
     {
       NS_LOG_INFO ("Configuring wireless network for backbone node " << i);
@@ -199,13 +173,13 @@ main (int argc, char *argv[])
       NodeContainer stas;
       stas.Create (infraNodes - 1);
       // Now, create the container with all nodes on this link
-      NodeContainer infra (backbone.Get (i), stas);
+      NodeContainer infra (myadhoc.backbone.Get (i), stas);
       //
       // Create an infrastructure network
       //
       WifiHelper wifiInfra;
       WifiMacHelper macInfra;
-      wifiPhy.SetChannel (wifiChannel.Create ());
+      myadhoc.wifiPhy.SetChannel (myadhoc.wifiChannel.Create ());
       // Create unique ssids for these networks
       std::string ssidString ("wifi-infra");
       std::stringstream ss;
@@ -216,27 +190,27 @@ main (int argc, char *argv[])
       // setup stas
       macInfra.SetType ("ns3::StaWifiMac",
                         "Ssid", SsidValue (ssid));
-      NetDeviceContainer staDevices = wifiInfra.Install (wifiPhy, macInfra, stas);
+      NetDeviceContainer staDevices = wifiInfra.Install (myadhoc.wifiPhy, macInfra, stas);
       // setup ap.
       macInfra.SetType ("ns3::ApWifiMac",
                         "Ssid", SsidValue (ssid));
-      NetDeviceContainer apDevices = wifiInfra.Install (wifiPhy, macInfra, backbone.Get (i));
+      NetDeviceContainer apDevices = wifiInfra.Install (myadhoc.wifiPhy, macInfra, myadhoc.backbone.Get (i));
       // Collect all of these new devices
       NetDeviceContainer infraDevices (apDevices, staDevices);
 
       // Add the IPv4 protocol stack to the nodes in our container
       //
-      internet.Install (stas);
+      myadhoc.internet.Install (stas);
       //
       // Assign IPv4 addresses to the device drivers (actually to the associated
       // IPv4 interfaces) we just created.
       //
-      ipAddrs.Assign (infraDevices);
+      myadhoc.ipAddrs.Assign (infraDevices);
       //
       // Assign a new network prefix for each mobile network, according to
       // the network mask initialized above
       //
-      ipAddrs.NewNetwork ();
+      myadhoc.ipAddrs.NewNetwork ();
       //
       // The new wireless nodes need a mobility model so we aggregate one
       // to each of the nodes we just finished building.
@@ -247,13 +221,13 @@ main (int argc, char *argv[])
         {
           subnetAlloc->Add (Vector (0.0, j, 0.0));
         }
-      mobility.PushReferenceMobilityModel (backbone.Get (i));
-      mobility.SetPositionAllocator (subnetAlloc);
-      mobility.SetMobilityModel ("ns3::RandomDirection2dMobilityModel",
+      myadhoc.mobility.PushReferenceMobilityModel (myadhoc.backbone.Get (i));
+      myadhoc.mobility.SetPositionAllocator (subnetAlloc);
+      myadhoc.mobility.SetMobilityModel ("ns3::RandomDirection2dMobilityModel",
                                  "Bounds", RectangleValue (Rectangle (-10, 10, -10, 10)),
                                  "Speed", StringValue ("ns3::ConstantRandomVariable[Constant=3]"),
                                  "Pause", StringValue ("ns3::ConstantRandomVariable[Constant=0.4]"));
-      mobility.Install (stas);
+      myadhoc.mobility.Install (stas);
     }
 
   ///////////////////////////////////////////////////////////////////////////
@@ -300,12 +274,12 @@ main (int argc, char *argv[])
   Ptr<OutputStreamWrapper> stream = ascii.CreateFileStream ("mixed-wireless.tr");
 
   csma.EnableAsciiAll (stream);
-  internet.EnableAsciiIpv4All (stream);
+  myadhoc.internet.EnableAsciiIpv4All (stream);
 
   // Csma captures in non-promiscuous mode
   csma.EnablePcapAll ("mixed-wireless", false);
   // pcap captures on the backbone wifi devices
-  wifiPhy.EnablePcap ("mixed-wireless", backboneDevices, false);
+  myadhoc.wifiPhy.EnablePcap ("mixed-wireless", myadhoc.backboneDevices, false);
 
 
   if (useCourseChangeCallback == true)
