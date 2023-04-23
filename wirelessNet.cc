@@ -131,13 +131,10 @@ class AdHocNetwork
 int
 main (int argc, char *argv[])
 {
-  uint32_t backboneNodes = 10; //we can change it depending on our simulation
+  uint32_t backboneNodes = 10; 
   uint32_t infraNodes = 2;
   uint32_t stopTime = 20;
   bool useCourseChangeCallback = false;
-
-  Config::SetDefault ("ns3::OnOffApplication::PacketSize", StringValue ("1472"));
-  Config::SetDefault ("ns3::OnOffApplication::DataRate", StringValue ("100kb/s"));
 
   CommandLine cmd (__FILE__);
   cmd.AddValue ("backboneNodes", "number of backbone nodes", backboneNodes);
@@ -151,11 +148,6 @@ main (int argc, char *argv[])
       std::cout << "Use a simulation stop time >= 10 seconds" << std::endl;
       exit (1);
     }
-  ///////////////////////////////////////////////////////////////////////////
-  //                                                                       //
-  // Construct the backbone                                                //
-  //                                                                       //
-  ///////////////////////////////////////////////////////////////////////////
 
   AdHocNetwork myadhoc (backboneNodes);
   
@@ -179,55 +171,24 @@ main (int argc, char *argv[])
       myadhoc.mobility.Install (myadhocinfra.backbone);
     }
 
-  ///////////////////////////////////////////////////////////////////////////
-  //                                                                       //
-  // Application configuration                                             //
-  //                                                                       //
-  ///////////////////////////////////////////////////////////////////////////
 
-  // Create the OnOff application to send UDP datagrams of size
-  // 210 bytes at a rate of 10 Kb/s, between two nodes
-  // We'll send data from the first wired LAN node on the first wired LAN
-  // to the last wireless STA on the last infrastructure net, thereby
-  // causing packets to traverse CSMA to adhoc to infrastructure links
 
- 
  
   NS_LOG_INFO ("Create Applications.");
-  uint16_t port = 9;   // Discard port (RFC 863)
-
-  
-  // We want the source to be the first node created outside of the backbone
-  // Conveniently, the variable "backboneNodes" holds this node index value
+  Config::SetDefault ("ns3::OnOffApplication::PacketSize", StringValue ("1472"));
+  Config::SetDefault ("ns3::OnOffApplication::DataRate", StringValue ("100kb/s"));
+  uint16_t port = 9;   
   Ptr<Node> appSource = NodeList::GetNode (backboneNodes);
-  // We want the sink to be the last node created in the topology.
-  
+  PacketSinkHelper sink ("ns3::UdpSocketFactory", InetSocketAddress (Ipv4Address::GetAny (), port));
 
-  // Create a packet sink to receive these packets
-  PacketSinkHelper sink ("ns3::UdpSocketFactory",
-                         InetSocketAddress (Ipv4Address::GetAny (), port));
-
-  ///////////////////////////////////////////////////////////////////////////
-  //                                                                       //
-  // Tracing configuration                                                 //
-  //                                                                       //
-  ///////////////////////////////////////////////////////////////////////////
 
   NS_LOG_INFO ("Configure Tracing.");
   CsmaHelper csma;
-
-  //
-  // Let's set up some ns-2-like ascii traces, using another helper class
-  //
   AsciiTraceHelper ascii;
   Ptr<OutputStreamWrapper> stream = ascii.CreateFileStream ("mixed-wireless.tr");
-
   csma.EnableAsciiAll (stream);
   myadhoc.internet.EnableAsciiIpv4All (stream);
-
-  // Csma captures in non-promiscuous mode
   csma.EnablePcapAll ("mixed-wireless", false);
-  // pcap captures on the backbone wifi devices
   myadhoc.wifiPhy.EnablePcap ("mixed-wireless", myadhoc.backboneDevices, false);
 
 
@@ -237,12 +198,6 @@ main (int argc, char *argv[])
     }
 
   AnimationInterface anim ("mixed-wireless.xml");
-
-  ///////////////////////////////////////////////////////////////////////////
-  //                                                                       //
-  // Run simulation                                                        //
-  //                                                                       //
-  ///////////////////////////////////////////////////////////////////////////
 
   NS_LOG_INFO ("Run Simulation.");
   Simulator::Stop (Seconds (stopTime));
