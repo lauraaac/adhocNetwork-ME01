@@ -131,7 +131,7 @@ class AdHocNetwork
 int
 main (int argc, char *argv[])
 {
-  uint32_t backboneNodes = 10; 
+  uint32_t backboneNodes = 2; 
   uint32_t infraNodes = 2;
   uint32_t stopTime = 20;
   bool useCourseChangeCallback = false;
@@ -155,7 +155,7 @@ main (int argc, char *argv[])
     {
       NS_LOG_INFO ("Configuring wireless network for backbone node " << i);
 
-      AdHocNetwork myadhocinfra (myadhoc, infraNodes - 1);
+      AdHocNetwork myadhocinfra (myadhoc, infraNodes);
 
       Ptr<ListPositionAllocator> subnetAlloc = CreateObject<ListPositionAllocator> ();
       for (uint32_t j = 0; j < myadhocinfra.backbone.GetN (); ++j)
