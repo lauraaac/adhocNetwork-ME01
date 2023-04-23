@@ -136,11 +136,10 @@ class AdHocNetwork
     };
 };
 
-int
-main(int argc, char* argv[])
+int main(int argc, char* argv[])
 {
     uint32_t backboneNodes = 2;
-    uint32_t infraNodes = 2;
+    uint32_t infraNodes = 6;
     uint32_t stopTime = 50;
     bool useCourseChangeCallback = false;
 
