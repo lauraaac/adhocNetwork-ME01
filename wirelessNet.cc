@@ -115,7 +115,7 @@ class AdHocNetwork
         mobility.Install (backbone);
     };
 
-    AdHocNetwork (AdHocNetwork &parentAdhoc, uint32_t infraNodes){
+    AdHocNetwork (AdHocNetwork &parentAdhoc, uint32_t infraNodes, uint32_t i){
         backbone.Create (infraNodes);
         mac.SetType ("ns3::AdhocWifiMac");
         wifiPhy.SetChannel (wifiChannel.Create ());
@@ -123,6 +123,19 @@ class AdHocNetwork
         internet.SetRoutingHelper (olsr); 
         parentAdhoc.internet.Install (backbone); 
         parentAdhoc.ipAddrs.Assign (backboneDevices);
+
+        Ptr<ListPositionAllocator> subnetAlloc = CreateObject<ListPositionAllocator> ();
+        for (uint32_t j = 0; j < backbone.GetN (); ++j)
+          {
+            subnetAlloc->Add (Vector (0.0, j, 0.0));
+          }
+        mobility.PushReferenceMobilityModel (parentAdhoc.backbone.Get (i));
+        mobility.SetPositionAllocator (subnetAlloc);
+        mobility.SetMobilityModel ("ns3::RandomDirection2dMobilityModel",
+                                  "Bounds", RectangleValue (Rectangle (-10, 10, -10, 10)),
+                                  "Speed", StringValue ("ns3::ConstantRandomVariable[Constant=3]"),
+                                  "Pause", StringValue ("ns3::ConstantRandomVariable[Constant=0.4]"));
+        mobility.Install (backbone);
     }
 
 };
@@ -155,20 +168,9 @@ main (int argc, char *argv[])
     {
       NS_LOG_INFO ("Configuring wireless network for backbone node " << i);
 
-      AdHocNetwork myadhocinfra (myadhoc, infraNodes);
+      AdHocNetwork myadhocinfra (myadhoc, infraNodes, i);
 
-      Ptr<ListPositionAllocator> subnetAlloc = CreateObject<ListPositionAllocator> ();
-      for (uint32_t j = 0; j < myadhocinfra.backbone.GetN (); ++j)
-        {
-          subnetAlloc->Add (Vector (0.0, j, 0.0));
-        }
-      myadhoc.mobility.PushReferenceMobilityModel (myadhoc.backbone.Get (i));
-      myadhoc.mobility.SetPositionAllocator (subnetAlloc);
-      myadhoc.mobility.SetMobilityModel ("ns3::RandomDirection2dMobilityModel",
-                                 "Bounds", RectangleValue (Rectangle (-10, 10, -10, 10)),
-                                 "Speed", StringValue ("ns3::ConstantRandomVariable[Constant=3]"),
-                                 "Pause", StringValue ("ns3::ConstantRandomVariable[Constant=0.4]"));
-      myadhoc.mobility.Install (myadhocinfra.backbone);
+      
     }
 
 
