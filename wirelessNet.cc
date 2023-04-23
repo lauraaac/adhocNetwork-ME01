@@ -114,43 +114,36 @@ class AdHocNetwork
                                   "Pause", StringValue ("ns3::ConstantRandomVariable[Constant=0.2]"));
         mobility.Install (backbone);
     };
+
+    AdHocNetwork (AdHocNetwork &parentAdhoc, uint32_t infraNodes){
+        backbone.Create (infraNodes);
+        mac.SetType ("ns3::AdhocWifiMac");
+        wifiPhy.SetChannel (wifiChannel.Create ());
+        backboneDevices = wifi.Install (wifiPhy, mac, backbone);
+        internet.SetRoutingHelper (olsr); 
+        parentAdhoc.internet.Install (backbone); 
+        parentAdhoc.ipAddrs.Assign (backboneDevices);
+    }
+
 };
 
 
 int
 main (int argc, char *argv[])
 {
-  //
-  // First, we declare and initialize a few local variables that control some
-  // simulation parameters.
-  //
   uint32_t backboneNodes = 10; //we can change it depending on our simulation
   uint32_t infraNodes = 2;
   uint32_t stopTime = 20;
   bool useCourseChangeCallback = false;
 
-  //
-  // Simulation defaults are typically set next, before command line
-  // arguments are parsed.
-  //
   Config::SetDefault ("ns3::OnOffApplication::PacketSize", StringValue ("1472"));
   Config::SetDefault ("ns3::OnOffApplication::DataRate", StringValue ("100kb/s"));
 
-  //
-  // For convenience, we add the local variables to the command line argument
-  // system so that they can be overridden with flags such as
-  // "--backboneNodes=20"
-  //
   CommandLine cmd (__FILE__);
   cmd.AddValue ("backboneNodes", "number of backbone nodes", backboneNodes);
   cmd.AddValue ("infraNodes", "number of leaf nodes", infraNodes);
   cmd.AddValue ("stopTime", "simulation stop time (seconds)", stopTime);
   cmd.AddValue ("useCourseChangeCallback", "whether to enable course change tracing", useCourseChangeCallback);
-
-  //
-  // The system global variables and the local values added to the argument
-  // system can be overridden by command line arguments by using this call.
-  //
   cmd.Parse (argc, argv);
 
   if (stopTime < 10)
@@ -169,55 +162,11 @@ main (int argc, char *argv[])
   for (uint32_t i = 0; i < backboneNodes; ++i)
     {
       NS_LOG_INFO ("Configuring wireless network for backbone node " << i);
-   
-      NodeContainer stas;
-      stas.Create (infraNodes - 1);
-      // Now, create the container with all nodes on this link
-      NodeContainer infra (myadhoc.backbone.Get (i), stas);
-      //
-      // Create an infrastructure network
-      //
-      WifiHelper wifiInfra;
-      WifiMacHelper macInfra;
-      myadhoc.wifiPhy.SetChannel (myadhoc.wifiChannel.Create ());
-      // Create unique ssids for these networks
-      std::string ssidString ("wifi-infra");
-      std::stringstream ss;
-      ss << i;
-      ssidString += ss.str ();
-      Ssid ssid = Ssid (ssidString);
-      wifiInfra.SetRemoteStationManager ("ns3::ConstantRateWifiManager","DataMode", StringValue ("OfdmRate54Mbps"));
-      // setup stas
-      macInfra.SetType ("ns3::StaWifiMac",
-                        "Ssid", SsidValue (ssid));
-      NetDeviceContainer staDevices = wifiInfra.Install (myadhoc.wifiPhy, macInfra, stas);
-      // setup ap.
-      macInfra.SetType ("ns3::ApWifiMac",
-                        "Ssid", SsidValue (ssid));
-      NetDeviceContainer apDevices = wifiInfra.Install (myadhoc.wifiPhy, macInfra, myadhoc.backbone.Get (i));
-      // Collect all of these new devices
-      NetDeviceContainer infraDevices (apDevices, staDevices);
 
-      // Add the IPv4 protocol stack to the nodes in our container
-      //
-      myadhoc.internet.Install (stas);
-      //
-      // Assign IPv4 addresses to the device drivers (actually to the associated
-      // IPv4 interfaces) we just created.
-      //
-      myadhoc.ipAddrs.Assign (infraDevices);
-      //
-      // Assign a new network prefix for each mobile network, according to
-      // the network mask initialized above
-      //
-      myadhoc.ipAddrs.NewNetwork ();
-      //
-      // The new wireless nodes need a mobility model so we aggregate one
-      // to each of the nodes we just finished building.
-      //
-      Ptr<ListPositionAllocator> subnetAlloc =
-        CreateObject<ListPositionAllocator> ();
-      for (uint32_t j = 0; j < infra.GetN (); ++j)
+      AdHocNetwork myadhocinfra (myadhoc, infraNodes - 1);
+
+      Ptr<ListPositionAllocator> subnetAlloc = CreateObject<ListPositionAllocator> ();
+      for (uint32_t j = 0; j < myadhocinfra.backbone.GetN (); ++j)
         {
           subnetAlloc->Add (Vector (0.0, j, 0.0));
         }
@@ -227,7 +176,7 @@ main (int argc, char *argv[])
                                  "Bounds", RectangleValue (Rectangle (-10, 10, -10, 10)),
                                  "Speed", StringValue ("ns3::ConstantRandomVariable[Constant=3]"),
                                  "Pause", StringValue ("ns3::ConstantRandomVariable[Constant=0.4]"));
-      myadhoc.mobility.Install (stas);
+      myadhoc.mobility.Install (myadhocinfra.backbone);
     }
 
   ///////////////////////////////////////////////////////////////////////////
