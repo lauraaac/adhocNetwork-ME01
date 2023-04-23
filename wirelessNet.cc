@@ -85,7 +85,7 @@ class AdHocNetwork
     WifiHelper wifi;
     WifiMacHelper mac;
     YansWifiPhyHelper wifiPhy;
-    YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default();
+    YansWifiChannelHelper wifiChannel;
     OlsrHelper olsr;
     InternetStackHelper internet;
     Ipv4AddressHelper ipAddrs;
@@ -115,6 +115,8 @@ class AdHocNetwork
     {
         backbone.Create(backboneNodes);
         mac.SetType("ns3::AdhocWifiMac");
+        wifiChannel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
+        wifiChannel.AddPropagationLoss("ns3::FriisPropagationLossModel");
         wifiPhy.SetChannel(wifiChannel.Create());
         backboneDevices = wifi.Install(wifiPhy, mac, backbone);
         internet.SetRoutingHelper(olsr);
