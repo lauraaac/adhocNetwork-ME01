@@ -98,14 +98,16 @@ class AdHocNetwork
         internet.Install(backbone);
         ipAddrs.SetBase("192.168.0.0", "255.255.255.0");
         ipAddrs.Assign(backboneDevices);
+        ipAddrs.NewNetwork();
         this->setMobilityModel();
     };
 
     AdHocNetwork(AdHocNetwork& parentAdhoc, uint32_t backboneNodes, uint32_t i)
     {
-        this->setWifi(backboneNodes);
+        this->setWifi(backboneNodes);     
         parentAdhoc.internet.Install(backbone);
         parentAdhoc.ipAddrs.Assign(backboneDevices);
+        parentAdhoc.ipAddrs.NewNetwork();
         mobility.PushReferenceMobilityModel(parentAdhoc.backbone.Get(i));
         this->setMobilityModel();
     }
@@ -129,16 +131,20 @@ class AdHocNetwork
         pos.Set("Y", StringValue("ns3::UniformRandomVariable[Min=0.0|Max=500.0]"));
         Ptr<PositionAllocator> alloc = pos.Create()->GetObject<PositionAllocator>();
         mobility.SetMobilityModel("ns3::RandomWaypointMobilityModel",
-                                  "Speed", StringValue("ns3::UniformRandomVariable[Min=0.0|Max=60.0]"),
-                                  "Pause", StringValue("ns3::ConstantRandomVariable[Constant=0.2]"),
-                                  "PositionAllocator",PointerValue(alloc));
+                                  "Speed",
+                                  StringValue("ns3::UniformRandomVariable[Min=0.0|Max=60.0]"),
+                                  "Pause",
+                                  StringValue("ns3::ConstantRandomVariable[Constant=0.2]"),
+                                  "PositionAllocator",
+                                  PointerValue(alloc));
 
         mobility.SetPositionAllocator(alloc);
         mobility.Install(backbone);
     };
 };
 
-int main(int argc, char* argv[])
+int
+main(int argc, char* argv[])
 {
     uint32_t backboneNodes = 2;
     uint32_t infraNodes = 6;
@@ -173,7 +179,7 @@ int main(int argc, char* argv[])
     Config::SetDefault("ns3::OnOffApplication::PacketSize", StringValue("1472"));
     Config::SetDefault("ns3::OnOffApplication::DataRate", StringValue("100kb/s"));
     uint16_t port = 9;
-    Ptr<Node> appSource = NodeList::GetNode(backboneNodes);
+    Ptr<Node> appSource = NodeList::GetNode(0);
     PacketSinkHelper sink("ns3::UdpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port));
 
     NS_LOG_INFO("Configure Tracing.");
@@ -187,8 +193,7 @@ int main(int argc, char* argv[])
 
     if (useCourseChangeCallback == true)
     {
-        Config::Connect("/NodeList/*/$ns3::MobilityModel/CourseChange",
-                        MakeCallback(&CourseChangeCallback));
+        Config::Connect("/NodeList/*/$ns3::MobilityModel/CourseChange", MakeCallback(&CourseChangeCallback));
     }
 
     AnimationInterface anim("mixed-wireless.xml");
