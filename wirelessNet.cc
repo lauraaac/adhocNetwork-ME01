@@ -91,28 +91,60 @@ class AdHocNetwork
     Ipv4AddressHelper ipAddrs;
     MobilityHelper mobility;
     ObjectFactory pos;
+    Ipv4InterfaceContainer interfaces;
+    ApplicationContainer apps;
 
     AdHocNetwork(uint32_t backboneNodes)
     {
-        this->setWifi(backboneNodes);
+        backbone.Create(backboneNodes);
+        mac.SetType("ns3::AdhocWifiMac");
+        wifiChannel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
+        wifiChannel.AddPropagationLoss("ns3::FriisPropagationLossModel");
+        wifiPhy.SetChannel(wifiChannel.Create());
+
+        backboneDevices = wifi.Install(wifiPhy, mac, backbone);
+        internet.SetRoutingHelper(olsr);  
         internet.Install(backbone);
         ipAddrs.SetBase("192.168.0.0", "255.255.255.0");
-        ipAddrs.Assign(backboneDevices);
+        interfaces = ipAddrs.Assign(backboneDevices);
         ipAddrs.NewNetwork();
         this->setMobilityModel();
     };
 
     AdHocNetwork(AdHocNetwork& parentAdhoc, uint32_t backboneNodes, uint32_t i)
     {
-        this->setWifi(backboneNodes);     
+        backbone.Create(backboneNodes);
+        mac.SetType("ns3::AdhocWifiMac");
+        wifiChannel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
+        wifiChannel.AddPropagationLoss("ns3::FriisPropagationLossModel");
+        wifiPhy.SetChannel(wifiChannel.Create());
+
+        internet.SetRoutingHelper(parentAdhoc.olsr);    
         parentAdhoc.internet.Install(backbone);
-        parentAdhoc.ipAddrs.Assign(backboneDevices);
+        
+        backbone.Add(parentAdhoc.backbone.Get(i));
+        backboneDevices = wifi.Install(wifiPhy, mac, backbone);
+        
+        interfaces = parentAdhoc.ipAddrs.Assign(backboneDevices);
         parentAdhoc.ipAddrs.NewNetwork();
         mobility.PushReferenceMobilityModel(parentAdhoc.backbone.Get(i));
         this->setMobilityModel();
+        this->setOnOffApp(parentAdhoc, i);
     }
 
   private:
+
+    void setOnOffApp(AdHocNetwork& paretAdhoc, uint32_t i){  
+        uint16_t port = 9;
+        OnOffHelper onoff("ns3::UdpSocketFactory", InetSocketAddress(paretAdhoc.interfaces.GetAddress(i), port));
+        onoff.SetAttribute("Remote", AddressValue(paretAdhoc.interfaces.GetAddress(i)));
+        onoff.SetAttribute("OnTime", StringValue("ns3::UniformRandomVariable[Min=0.0|Max=1.0]"));
+        onoff.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0.1]"));
+        onoff.SetAttribute("DataRate", DataRateValue(DataRate("100kbps")));
+        onoff.SetAttribute("PacketSize", UintegerValue(1472));
+    }
+
+
     void setWifi(uint32_t backboneNodes)
     {
         backbone.Create(backboneNodes);
@@ -121,7 +153,6 @@ class AdHocNetwork
         wifiChannel.AddPropagationLoss("ns3::FriisPropagationLossModel");
         wifiPhy.SetChannel(wifiChannel.Create());
         backboneDevices = wifi.Install(wifiPhy, mac, backbone);
-        internet.SetRoutingHelper(olsr);
     };
 
     void setMobilityModel()
@@ -155,32 +186,17 @@ main(int argc, char* argv[])
     cmd.AddValue("backboneNodes", "number of backbone nodes", backboneNodes);
     cmd.AddValue("infraNodes", "number of leaf nodes", infraNodes);
     cmd.AddValue("stopTime", "simulation stop time (seconds)", stopTime);
-    cmd.AddValue("useCourseChangeCallback",
-                 "whether to enable course change tracing",
-                 useCourseChangeCallback);
+    cmd.AddValue("useCourseChangeCallback", "whether to enable course change tracing", useCourseChangeCallback);
     cmd.Parse(argc, argv);
 
-    if (stopTime < 10)
-    {
-        std::cout << "Use a simulation stop time >= 10 seconds" << std::endl;
-        exit(1);
-    }
-
     AdHocNetwork myadhoc(backboneNodes);
-
     for (uint32_t i = 0; i < backboneNodes; ++i)
     {
         NS_LOG_INFO("Configuring wireless network for backbone node " << i);
-
         AdHocNetwork myadhocinfra(myadhoc, infraNodes, i);
     }
 
     NS_LOG_INFO("Create Applications.");
-    Config::SetDefault("ns3::OnOffApplication::PacketSize", StringValue("1472"));
-    Config::SetDefault("ns3::OnOffApplication::DataRate", StringValue("100kb/s"));
-    uint16_t port = 9;
-    Ptr<Node> appSource = NodeList::GetNode(0);
-    PacketSinkHelper sink("ns3::UdpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port));
 
     NS_LOG_INFO("Configure Tracing.");
     CsmaHelper csma;
