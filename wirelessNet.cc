@@ -57,6 +57,7 @@
 #include "ns3/string.h"
 #include "ns3/yans-wifi-channel.h"
 #include "ns3/yans-wifi-helper.h"
+#include "ns3/packet-sink.h"
 
 using namespace ns3;
 
@@ -92,7 +93,8 @@ class AdHocNetwork
     MobilityHelper mobility;
     ObjectFactory pos;
     Ipv4InterfaceContainer interfaces;
-    ApplicationContainer apps;
+
+    AdHocNetwork();
 
     AdHocNetwork(uint32_t backboneNodes)
     {
@@ -118,33 +120,20 @@ class AdHocNetwork
         wifiChannel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
         wifiChannel.AddPropagationLoss("ns3::FriisPropagationLossModel");
         wifiPhy.SetChannel(wifiChannel.Create());
-
-        internet.SetRoutingHelper(parentAdhoc.olsr);    
-        parentAdhoc.internet.Install(backbone);
-        
-        backbone.Add(parentAdhoc.backbone.Get(i));
         backboneDevices = wifi.Install(wifiPhy, mac, backbone);
-        
+
+        internet.SetRoutingHelper(olsr);    
+        parentAdhoc.internet.Install(backbone);
         interfaces = parentAdhoc.ipAddrs.Assign(backboneDevices);
         parentAdhoc.ipAddrs.NewNetwork();
+        wifi.Install(wifiPhy, mac, parentAdhoc.backbone.Get(i));
+
         mobility.PushReferenceMobilityModel(parentAdhoc.backbone.Get(i));
         this->setMobilityModel();
-        this->setOnOffApp(parentAdhoc, i);
     }
 
   private:
-
-    void setOnOffApp(AdHocNetwork& paretAdhoc, uint32_t i){  
-        uint16_t port = 9;
-        OnOffHelper onoff("ns3::UdpSocketFactory", InetSocketAddress(paretAdhoc.interfaces.GetAddress(i), port));
-        onoff.SetAttribute("Remote", AddressValue(paretAdhoc.interfaces.GetAddress(i)));
-        onoff.SetAttribute("OnTime", StringValue("ns3::UniformRandomVariable[Min=0.0|Max=1.0]"));
-        onoff.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0.1]"));
-        onoff.SetAttribute("DataRate", DataRateValue(DataRate("100kbps")));
-        onoff.SetAttribute("PacketSize", UintegerValue(1472));
-    }
-
-
+  
     void setWifi(uint32_t backboneNodes)
     {
         backbone.Create(backboneNodes);
@@ -174,6 +163,11 @@ class AdHocNetwork
     };
 };
 
+void ImprimirResultado (double resultado) {
+    // Imprimir el resultado en pantalla
+    std::cout << "El resultado es: " << resultado << std::endl;
+}
+
 int
 main(int argc, char* argv[])
 {
@@ -189,23 +183,45 @@ main(int argc, char* argv[])
     cmd.AddValue("useCourseChangeCallback", "whether to enable course change tracing", useCourseChangeCallback);
     cmd.Parse(argc, argv);
 
-    AdHocNetwork myadhoc(backboneNodes);
-    for (uint32_t i = 0; i < backboneNodes; ++i)
-    {
-        NS_LOG_INFO("Configuring wireless network for backbone node " << i);
-        AdHocNetwork myadhocinfra(myadhoc, infraNodes, i);
-    }
-
-    NS_LOG_INFO("Create Applications.");
-
     NS_LOG_INFO("Configure Tracing.");
     CsmaHelper csma;
     AsciiTraceHelper ascii;
     Ptr<OutputStreamWrapper> stream = ascii.CreateFileStream("mixed-wireless.tr");
     csma.EnableAsciiAll(stream);
+    csma.EnablePcapAll("mixed-wireless", true);
+
+
+    AdHocNetwork myadhoc(backboneNodes);
     myadhoc.internet.EnableAsciiIpv4All(stream);
-    csma.EnablePcapAll("mixed-wireless", false);
-    myadhoc.wifiPhy.EnablePcap("mixed-wireless", myadhoc.backboneDevices, false);
+    myadhoc.wifiPhy.EnablePcap("mixed-wireless", myadhoc.backboneDevices, true);
+
+    for (uint32_t i = 0; i < backboneNodes; ++i)
+    {
+        NS_LOG_INFO("Configuring wireless network for backbone node " << i);
+        AdHocNetwork myadhocinfra(myadhoc, infraNodes, i);
+        myadhocinfra.internet.EnableAsciiIpv4All(stream);
+        myadhocinfra.wifiPhy.EnablePcap("mixed-wireless", myadhocinfra.backboneDevices, true);
+    }
+
+    NS_LOG_INFO("Create Applications.");
+    ApplicationContainer apps;
+
+    uint16_t port = 9;
+    OnOffHelper onoff("ns3::UdpSocketFactory", Ipv4Address::GetAny());
+    onoff.SetAttribute("Remote", AddressValue(InetSocketAddress(Ipv4Address::GetAny(), port)));
+    onoff.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"));
+    onoff.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0]"));
+    onoff.SetAttribute("PacketSize", UintegerValue(1472));
+    onoff.SetAttribute("DataRate", StringValue("1Mb/s"));
+
+    PacketSinkHelper sink("ns3::UdpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port));
+    apps.Add(sink.Install(NodeContainer::GetGlobal()));
+    apps.Add(onoff.Install(NodeContainer::GetGlobal()));
+    apps.Start(Seconds(1.0));
+    apps.Stop(Seconds(stopTime));
+    
+    csma.Install(NodeContainer::GetGlobal());
+    
 
     if (useCourseChangeCallback == true)
     {
@@ -213,9 +229,10 @@ main(int argc, char* argv[])
     }
 
     AnimationInterface anim("mixed-wireless.xml");
+    anim.EnableIpv4RouteTracking("mixed-wireless-route-tracking.xml", Seconds(0), Seconds(9), Seconds(0.25));
 
     NS_LOG_INFO("Run Simulation.");
-    Simulator::Stop(Seconds(stopTime));
+    Simulator::Stop(Seconds(stopTime+2));
     Simulator::Run();
     Simulator::Destroy();
 }
