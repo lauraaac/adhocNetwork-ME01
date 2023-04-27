@@ -120,13 +120,14 @@ class AdHocNetwork
         wifiChannel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
         wifiChannel.AddPropagationLoss("ns3::FriisPropagationLossModel");
         wifiPhy.SetChannel(wifiChannel.Create());
-        backboneDevices = wifi.Install(wifiPhy, mac, backbone);
 
-        internet.SetRoutingHelper(olsr);    
+
+        internet.SetRoutingHelper(parentAdhoc.olsr);    
         parentAdhoc.internet.Install(backbone);
+        backbone.Add(parentAdhoc.backbone.Get(i));
+        backboneDevices = wifi.Install(wifiPhy, mac, backbone);
         interfaces = parentAdhoc.ipAddrs.Assign(backboneDevices);
         parentAdhoc.ipAddrs.NewNetwork();
-        wifi.Install(wifiPhy, mac, parentAdhoc.backbone.Get(i));
 
         mobility.PushReferenceMobilityModel(parentAdhoc.backbone.Get(i));
         this->setMobilityModel();
@@ -189,6 +190,7 @@ main(int argc, char* argv[])
     Ptr<OutputStreamWrapper> stream = ascii.CreateFileStream("mixed-wireless.tr");
     csma.EnableAsciiAll(stream);
     csma.EnablePcapAll("mixed-wireless", true);
+    csma.Install(NodeContainer::GetGlobal());
 
 
     AdHocNetwork myadhoc(backboneNodes);
@@ -215,12 +217,13 @@ main(int argc, char* argv[])
     onoff.SetAttribute("DataRate", StringValue("1Mb/s"));
 
     PacketSinkHelper sink("ns3::UdpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port));
-    apps.Add(sink.Install(NodeContainer::GetGlobal()));
-    apps.Add(onoff.Install(NodeContainer::GetGlobal()));
+    apps.Add(sink.Install(myadhoc.backbone));
+    apps.Add(onoff.Install(myadhoc.backbone));
     apps.Start(Seconds(1.0));
     apps.Stop(Seconds(stopTime));
     
-    csma.Install(NodeContainer::GetGlobal());
+
+    
     
 
     if (useCourseChangeCallback == true)
