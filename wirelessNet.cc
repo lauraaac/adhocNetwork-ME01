@@ -139,10 +139,11 @@ class AdHocNetwork
         backbone.Add(parentAdhoc.backbone.Get(i));
         backboneDevices = wifi.Install(wifiPhy, mac, backbone);
         interfaces = parentAdhoc.ipAddrs.Assign(backboneDevices);
+        ipAddrs = parentAdhoc.ipAddrs; 
         parentAdhoc.ipAddrs.NewNetwork();
 
-        mobility.PushReferenceMobilityModel(parentAdhoc.backbone.Get(i));
         this->setMobilityModel();
+        mobility.PushReferenceMobilityModel(parentAdhoc.backbone.Get(i));
     }
 
   private:
@@ -233,19 +234,20 @@ main(int argc, char* argv[])
         std::cout << "Node " << irand << " has address " << addrRand << std::endl;
 
         AddressValue remoteAddress(InetSocketAddress(addrRand, port));
-        OnOffHelper onoff("ns3::UdpSocketFactory", addr);
+        OnOffHelper onoff("ns3::UdpSocketFactory", addrRand);
         onoff.SetAttribute("Remote", remoteAddress);
         onoff.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"));
         onoff.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0]"));
         onoff.SetAttribute("PacketSize", UintegerValue(1472));
         onoff.SetAttribute("DataRate", StringValue("1Mb/s"));
-        apps = onoff.Install(node);
+        apps = onoff.Install(NodeContainer::GetGlobal());
         apps.Start(Seconds(0.0));
         apps.Stop(Seconds(stopTime));
     }
 
-    // Config::Connect("/NodeList/*/ApplicationList/0/$ns3::OnOffApplication/Tx",
-    // MakeCallback(&RxCallback));
+
+
+    Config::Connect("/NodeList/*/ApplicationList/0/$ns3::OnOffApplication/Tx", MakeCallback(&RxCallback));
 
     // Config::Connect("/NodeList/0/$ns3::MobilityModel/CourseChange",
     // MakeCallback(&CourseChangeCallback));
