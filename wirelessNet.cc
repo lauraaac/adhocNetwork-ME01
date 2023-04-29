@@ -145,8 +145,8 @@ class AdHocNetwork
         interfaces = parentAdhoc.ipAddrs.Assign(backboneDevices);
         parentAdhoc.ipAddrs.NewNetwork();
 
-        mobility.PushReferenceMobilityModel(parentAdhoc.backbone.Get(i));
         this->setMobilityModel();
+        mobility.PushReferenceMobilityModel(parentAdhoc.backbone.Get(i));
     }
 
   private:
@@ -183,9 +183,9 @@ class AdHocNetwork
 int
 main(int argc, char* argv[]) 
 {
-    uint32_t backboneNodes = 2;
-    uint32_t infraNodes = 2;
-    uint32_t stopTime = 50;
+    uint32_t backboneNodes = 3;
+    uint32_t infraNodes =  6;
+    uint32_t stopTime = 10;
     bool useCourseChangeCallback = true;
 
     CommandLine cmd(__FILE__);
@@ -207,6 +207,10 @@ main(int argc, char* argv[])
     AdHocNetwork myadhoc(backboneNodes); // Cluster Padres
     myadhoc.internet.EnableAsciiIpv4All(stream);
     myadhoc.wifiPhy.EnablePcap("mixed-wireless", myadhoc.backboneDevices, true);
+    NS_LOG_INFO("Create Applications.");
+
+    ApplicationContainer apps;
+    uint16_t port = 9;
 
     for (uint32_t i = 0; i < backboneNodes; ++i)
     {
@@ -214,36 +218,37 @@ main(int argc, char* argv[])
         AdHocNetwork myadhocinfra(myadhoc, infraNodes, i); //Cluster de hijos
         myadhocinfra.internet.EnableAsciiIpv4All(stream);
         myadhocinfra.wifiPhy.EnablePcap("mixed-wireless", myadhocinfra.backboneDevices, true);
+
+        AddressValue remoteAddress(InetSocketAddress(myadhoc.interfaces.GetAddress(backboneNodes - (i+1)), port));
+        
+        for (size_t j = 0; j < infraNodes; j++)
+        {
+            OnOffHelper onoff("ns3::UdpSocketFactory",myadhocinfra.interfaces.GetAddress(j));
+            onoff.SetAttribute("Remote", remoteAddress);
+            onoff.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"));
+            onoff.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0]"));
+            onoff.SetAttribute("PacketSize", UintegerValue(1472));
+            onoff.SetAttribute("DataRate", StringValue("1Mb/s"));
+            apps = onoff.Install(myadhocinfra.backbone.Get(j));
+            apps.Start(Seconds(0.0));
+            apps.Stop(Seconds(stopTime));
+        }
+        
     }
     
     
 
-    NS_LOG_INFO("Create Applications.");
-
-    ApplicationContainer apps;
-    uint16_t port = 9;
-    AddressValue remoteAddress(InetSocketAddress(myadhoc.interfaces.GetAddress(1), port));
 
 
-    OnOffHelper onoff("ns3::UdpSocketFactory",myadhoc.interfaces.GetAddress(0));
-    onoff.SetAttribute("Remote", remoteAddress);
-    onoff.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"));
-    onoff.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0]"));
-    onoff.SetAttribute("PacketSize", UintegerValue(1472));
-    onoff.SetAttribute("DataRate", StringValue("1Mb/s"));
 
-    apps = onoff.Install(myadhoc.backbone.Get(0));
+    //Config::Connect("/NodeList/*/ApplicationList/0/$ns3::OnOffApplication/Tx", MakeCallback(&RxCallback));
+ 
 
+    //Config::Connect("/NodeList/0/$ns3::MobilityModel/CourseChange", MakeCallback(&CourseChangeCallback));
+    //Config::Connect("/NodeList/*/ApplicationList/0/$ns3::PacketSink/Rx", MakeCallback(&RxCallback));
     //PacketSinkHelper sink("ns3::UdpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port));
     // apps.Add(sink.Install(NodeContainer::GetGlobal()));
     // apps.Add(onoff.Install(NodeContainer::GetGlobal()));
-    apps.Start(Seconds(0.0));
-    //Config::Connect("/NodeList/0/$ns3::MobilityModel/CourseChange", MakeCallback(&CourseChangeCallback));
-    //Config::Connect("/NodeList/*/ApplicationList/0/$ns3::PacketSink/Rx", MakeCallback(&RxCallback));
-    Config::Connect("/NodeList/*/ApplicationList/0/$ns3::OnOffApplication/Tx", MakeCallback(&RxCallback));
-    apps.Stop(Seconds(stopTime));
-
- 
     
    
 
