@@ -52,12 +52,12 @@
 #include "ns3/olsr-helper.h"
 #include "ns3/on-off-helper.h"
 #include "ns3/packet-sink-helper.h"
+#include "ns3/packet-sink.h"
 #include "ns3/qos-txop.h"
 #include "ns3/ssid.h"
 #include "ns3/string.h"
 #include "ns3/yans-wifi-channel.h"
 #include "ns3/yans-wifi-helper.h"
-#include "ns3/packet-sink.h"
 
 using namespace ns3;
 
@@ -74,18 +74,15 @@ static void
 CourseChangeCallback(std::string path, Ptr<const MobilityModel> model)
 {
     Vector position = model->GetPosition();
-    std::cout << "CourseChange " 
-        << " x=" << position.x 
-        << ", y=" << position.y 
-        << ", z=" << position.z 
-        << " * "<<  " | " <<
-        model->GetVelocity().x <<  " | " <<
-        model->GetVelocity().y << " | "  <<
-        model->GetVelocity().z << std::endl;
+    std::cout << "CourseChange "
+              << " x=" << position.x << ", y=" << position.y << ", z=" << position.z << " * "
+              << " | " << model->GetVelocity().x << " | " << model->GetVelocity().y << " | "
+              << model->GetVelocity().z << std::endl;
 }
 
-//CallbackImpl<void,std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >,ns3::Ptr<ns3::Packet const>
-//CallbackImpl<void,std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >,ns3::Ptr<ns3::Packet const>,ns3::Address
+// CallbackImpl<void,std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char>
+// >,ns3::Ptr<ns3::Packet const> CallbackImpl<void,std::__cxx11::basic_string<char,
+// std::char_traits<char>, std::allocator<char> >,ns3::Ptr<ns3::Packet const>,ns3::Address
 
 static void
 RxCallback(std::string path, Ptr<const Packet> packet)
@@ -120,7 +117,7 @@ class AdHocNetwork
         wifiPhy.SetChannel(wifiChannel.Create());
 
         backboneDevices = wifi.Install(wifiPhy, mac, backbone);
-        internet.SetRoutingHelper(olsr);  
+        internet.SetRoutingHelper(olsr);
         internet.Install(backbone);
         ipAddrs.SetBase("192.168.0.0", "255.255.255.0");
         interfaces = ipAddrs.Assign(backboneDevices);
@@ -136,8 +133,7 @@ class AdHocNetwork
         wifiChannel.AddPropagationLoss("ns3::FriisPropagationLossModel");
         wifiPhy.SetChannel(wifiChannel.Create());
 
-
-        internet.SetRoutingHelper(parentAdhoc.olsr);    
+        internet.SetRoutingHelper(parentAdhoc.olsr);
         parentAdhoc.internet.Install(backbone);
 
         backbone.Add(parentAdhoc.backbone.Get(i));
@@ -145,12 +141,11 @@ class AdHocNetwork
         interfaces = parentAdhoc.ipAddrs.Assign(backboneDevices);
         parentAdhoc.ipAddrs.NewNetwork();
 
-        this->setMobilityModel();
         mobility.PushReferenceMobilityModel(parentAdhoc.backbone.Get(i));
+        this->setMobilityModel();
     }
 
   private:
-  
     void setWifi(uint32_t backboneNodes)
     {
         backbone.Create(backboneNodes);
@@ -181,18 +176,20 @@ class AdHocNetwork
 };
 
 int
-main(int argc, char* argv[]) 
+main(int argc, char* argv[])
 {
-    uint32_t backboneNodes = 3;
-    uint32_t infraNodes =  6;
-    uint32_t stopTime = 10;
+    uint32_t backboneNodes = 2;
+    uint32_t infraNodes = 1;
+    uint32_t stopTime = 40;
     bool useCourseChangeCallback = true;
 
     CommandLine cmd(__FILE__);
     cmd.AddValue("backboneNodes", "number of backbone nodes", backboneNodes);
     cmd.AddValue("infraNodes", "number of leaf nodes", infraNodes);
     cmd.AddValue("stopTime", "simulation stop time (seconds)", stopTime);
-    cmd.AddValue("useCourseChangeCallback", "whether to enable course change tracing", useCourseChangeCallback);
+    cmd.AddValue("useCourseChangeCallback",
+                 "whether to enable course change tracing",
+                 useCourseChangeCallback);
     cmd.Parse(argc, argv);
 
     NS_LOG_INFO("Configure Tracing.");
@@ -202,7 +199,6 @@ main(int argc, char* argv[])
     csma.EnableAsciiAll(stream);
     csma.EnablePcapAll("mixed-wireless", true);
     csma.Install(NodeContainer::GetGlobal());
-
 
     AdHocNetwork myadhoc(backboneNodes); // Cluster Padres
     myadhoc.internet.EnableAsciiIpv4All(stream);
@@ -215,48 +211,58 @@ main(int argc, char* argv[])
     for (uint32_t i = 0; i < backboneNodes; ++i)
     {
         NS_LOG_INFO("Configuring wireless network for backbone node " << i);
-        AdHocNetwork myadhocinfra(myadhoc, infraNodes, i); //Cluster de hijos
+        AdHocNetwork myadhocinfra(myadhoc, infraNodes, i); // Cluster de hijos
         myadhocinfra.internet.EnableAsciiIpv4All(stream);
         myadhocinfra.wifiPhy.EnablePcap("mixed-wireless", myadhocinfra.backboneDevices, true);
-
-        AddressValue remoteAddress(InetSocketAddress(myadhoc.interfaces.GetAddress(backboneNodes - (i+1)), port));
-        
-        for (size_t j = 0; j < infraNodes; j++)
-        {
-            OnOffHelper onoff("ns3::UdpSocketFactory",myadhocinfra.interfaces.GetAddress(j));
-            onoff.SetAttribute("Remote", remoteAddress);
-            onoff.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"));
-            onoff.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0]"));
-            onoff.SetAttribute("PacketSize", UintegerValue(1472));
-            onoff.SetAttribute("DataRate", StringValue("1Mb/s"));
-            apps = onoff.Install(myadhocinfra.backbone.Get(j));
-            apps.Start(Seconds(0.0));
-            apps.Stop(Seconds(stopTime));
-        }
-        
+       
     }
-    
-    
 
 
+    for (size_t i = backboneNodes; i < NodeContainer::GetGlobal().GetN(); i++)
+    {
+        u_int32_t irand = NodeContainer::GetGlobal().GetN() - (i-1);
+        Ptr<Node> nodeRand = NodeContainer::GetGlobal().Get(irand);
+        Ptr<Ipv4> ipv4Rand = nodeRand->GetObject<Ipv4>();
+        Ipv4Address addrRand = ipv4Rand->GetAddress(1, 0).GetLocal();
 
+        Ptr<Node> node = NodeContainer::GetGlobal().Get(i);
+        Ptr<Ipv4> ipv4 = node->GetObject<Ipv4>();
+        Ipv4Address addr = ipv4->GetAddress(1, 0).GetLocal();
+        
+        std::cout << "Node " << i << " has address " << addr << " --> \t";
+        std::cout << "Node " << irand << " has address " << addrRand << std::endl;
 
-    //Config::Connect("/NodeList/*/ApplicationList/0/$ns3::OnOffApplication/Tx", MakeCallback(&RxCallback));
- 
+        AddressValue remoteAddress(InetSocketAddress(addrRand, port));
+        OnOffHelper onoff("ns3::UdpSocketFactory", addr);
+        onoff.SetAttribute("Remote", remoteAddress);
+        onoff.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"));
+        onoff.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0]"));
+        onoff.SetAttribute("PacketSize", UintegerValue(1472));
+        onoff.SetAttribute("DataRate", StringValue("1Mb/s"));
+        apps = onoff.Install(node);
+        apps.Start(Seconds(0.0));
+        apps.Stop(Seconds(stopTime));
+    }
 
-    //Config::Connect("/NodeList/0/$ns3::MobilityModel/CourseChange", MakeCallback(&CourseChangeCallback));
-    //Config::Connect("/NodeList/*/ApplicationList/0/$ns3::PacketSink/Rx", MakeCallback(&RxCallback));
-    //PacketSinkHelper sink("ns3::UdpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port));
-    // apps.Add(sink.Install(NodeContainer::GetGlobal()));
-    // apps.Add(onoff.Install(NodeContainer::GetGlobal()));
-    
-   
+    // Config::Connect("/NodeList/*/ApplicationList/0/$ns3::OnOffApplication/Tx",
+    // MakeCallback(&RxCallback));
+
+    // Config::Connect("/NodeList/0/$ns3::MobilityModel/CourseChange",
+    // MakeCallback(&CourseChangeCallback));
+    // Config::Connect("/NodeList/*/ApplicationList/0/$ns3::PacketSink/Rx",
+    // MakeCallback(&RxCallback)); PacketSinkHelper sink("ns3::UdpSocketFactory",
+    // InetSocketAddress(Ipv4Address::GetAny(), port));
+    //  apps.Add(sink.Install(NodeContainer::GetGlobal()));
+    //  apps.Add(onoff.Install(NodeContainer::GetGlobal()));
 
     AnimationInterface anim("mixed-wireless.xml");
-    anim.EnableIpv4RouteTracking("mixed-wireless-route-tracking.xml", Seconds(0), Seconds(9), Seconds(0.25));
+    anim.EnableIpv4RouteTracking("mixed-wireless-route-tracking.xml",
+                                 Seconds(0),
+                                 Seconds(9),
+                                 Seconds(0.25));
 
     NS_LOG_INFO("Run Simulation.");
-    Simulator::Stop(Seconds(stopTime+2));
+    Simulator::Stop(Seconds(stopTime + 2));
     Simulator::Run();
     Simulator::Destroy();
 }
