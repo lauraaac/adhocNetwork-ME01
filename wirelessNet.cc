@@ -203,8 +203,8 @@ class AdHocNetwork
 int
 main(int argc, char* argv[])
 {
-    uint32_t backboneNodes = 6;
-    uint32_t infraNodes = 6;
+    uint32_t backboneNodes = 2;
+    uint32_t infraNodes = 1;
     uint32_t stopTime = 10;
     bool useCourseChangeCallback = true;
     SeedManager::SetSeed (time(0));
@@ -260,7 +260,6 @@ main(int argc, char* argv[])
         std::cout << "Node " << irand << " has address " << addrRand << std::endl;
 
         AddressValue remoteAddress(InetSocketAddress(addrRand, port));
-        PacketSinkHelper sink("ns3::UdpSocketFactory", InetSocketAddress(addr, 5000));
         OnOffHelper onoff("ns3::UdpSocketFactory", addrRand);
         onoff.SetAttribute("Remote", remoteAddress);
         onoff.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"));
@@ -268,9 +267,6 @@ main(int argc, char* argv[])
         onoff.SetAttribute("PacketSize", UintegerValue(1472));
         onoff.SetAttribute("DataRate", StringValue("512kb/s"));
         apps = onoff.Install(NodeContainer::GetGlobal());
-        sinkApps = sink.Install(NodeContainer::GetGlobal());
-        sinkApps.Start(Seconds(0.0));
-        sinkApps.Stop(Seconds(stopTime));
         apps.Start(Seconds(3.0));
         apps.Stop(Seconds(stopTime));
     }
@@ -300,7 +296,26 @@ main(int argc, char* argv[])
     Simulator::Destroy();
 
     flowMonitor->CheckForLostPackets();
-    flowMonitor->SerializeToXmlFile("mixed-wireless-flow-monitor.xml", true, true);
+    flowMonitor->SerializeToXmlFile("mixed-wireless-flow-monitor.xml", false, false);
+
+    // Obtener estadísticas de flujo
+    std::map<FlowId, FlowMonitor::FlowStats> stats = flowMonitor->GetFlowStats();  
+    
+
+    // Imprimir txBitrate de cada flujo
+    for (std::map<FlowId, FlowMonitor::FlowStats>::const_iterator i = stats.begin(); i != stats.end(); ++i) {
+        std::cout << "--- " << std::endl;
+        std::cout << "ip_src: " << i->first << std::endl;
+        std::cout << "Flow ID: " << i->first << ", txBitrate: " << i->second.txBytes  << " txBytes received" << std::endl;
+        std::cout << "Time First Packet: " << i->second.timeFirstTxPacket.GetSeconds() << std::endl;
+        std::cout << "Time Last Packet: " << i->second.timeLastTxPacket.GetSeconds() << std::endl;
+        std::cout << "Time of sata send: " << i->second.timeLastTxPacket.GetSeconds() - i->second.timeFirstTxPacket.GetSeconds() << std::endl;
+        std::cout << "Delay: " << i->second.delaySum.GetSeconds() / i->second.rxPackets << std::endl;
+        std::cout << "Jitter: " << i->second.jitterSum.GetSeconds() / (i->second.rxPackets - 1) << std::endl;
+        std::cout << "Lost Packets: " << i->second.lostPackets << std::endl;
+        std::cout << "Tx bitrate: " << i->second.txBytes * 8.0 / (i->second.timeLastTxPacket.GetSeconds() - i->second.timeFirstTxPacket.GetSeconds()) / 1000 << " Kbps" << std::endl;        
+
+    }
     
 
     return 0;
