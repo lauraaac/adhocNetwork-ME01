@@ -203,8 +203,8 @@ class AdHocNetwork
 int
 main(int argc, char* argv[])
 {
-    uint32_t backboneNodes = 2;
-    uint32_t infraNodes = 2;
+    uint32_t backboneNodes = 6;
+    uint32_t infraNodes = 6;
     uint32_t stopTime = 10;
     bool useCourseChangeCallback = true;
     SeedManager::SetSeed (time(0));
@@ -295,12 +295,13 @@ main(int argc, char* argv[])
                                  Seconds(0.25));
 
     NS_LOG_INFO("Run Simulation.");
-    Simulator::Stop(Seconds(stopTime + 2));
+    Simulator::Stop(Seconds(stopTime));
     Simulator::Run();
     Simulator::Destroy();
 
     flowMonitor->CheckForLostPackets();
     flowMonitor->SerializeToXmlFile("mixed-wireless-flow-monitor.xml", true, true);
+    
 
     return 0;
 }
