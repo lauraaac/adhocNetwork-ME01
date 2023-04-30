@@ -282,6 +282,7 @@ main(int argc, char* argv[])
     //  apps.Add(sink.Install(NodeContainer::GetGlobal()));
     //  apps.Add(onoff.Install(NodeContainer::GetGlobal()));
 
+
     FlowMonitorHelper flowMonitorHelper;
     Ptr<FlowMonitor> flowMonitor = flowMonitorHelper.InstallAll();
     AnimationInterface anim("mixed-wireless.xml");
@@ -293,20 +294,21 @@ main(int argc, char* argv[])
     NS_LOG_INFO("Run Simulation.");
     Simulator::Stop(Seconds(stopTime));
     Simulator::Run();
-    Simulator::Destroy();
 
     flowMonitor->CheckForLostPackets();
     flowMonitor->SerializeToXmlFile("mixed-wireless-flow-monitor.xml", false, false);
+    
 
     // Obtener estadísticas de flujo
     std::map<FlowId, FlowMonitor::FlowStats> stats = flowMonitor->GetFlowStats();  
-    
+    Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier> (flowMonitorHelper.GetClassifier ());
+
 
     // Imprimir txBitrate de cada flujo
     for (std::map<FlowId, FlowMonitor::FlowStats>::const_iterator i = stats.begin(); i != stats.end(); ++i) {
+        Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow (i->first);
         std::cout << "--- " << std::endl;
-        std::cout << "ip_src: " << i->first << std::endl;
-        std::cout << "Flow ID: " << i->first << ", txBitrate: " << i->second.txBytes  << " txBytes received" << std::endl;
+        std::cout << "Flow ID: " << t.sourceAddress << ", txBitrate: " << i->second.txBytes  << " txBytes received" << std::endl;
         std::cout << "Time First Packet: " << i->second.timeFirstTxPacket.GetSeconds() << std::endl;
         std::cout << "Time Last Packet: " << i->second.timeLastTxPacket.GetSeconds() << std::endl;
         std::cout << "Time of sata send: " << i->second.timeLastTxPacket.GetSeconds() - i->second.timeFirstTxPacket.GetSeconds() << std::endl;
@@ -316,7 +318,9 @@ main(int argc, char* argv[])
         std::cout << "Tx bitrate: " << i->second.txBytes * 8.0 / (i->second.timeLastTxPacket.GetSeconds() - i->second.timeFirstTxPacket.GetSeconds()) / 1000 << " Kbps" << std::endl;        
 
     }
-    
 
+   
+    
+    Simulator::Destroy();
     return 0;
 }
