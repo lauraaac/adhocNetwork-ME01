@@ -188,7 +188,7 @@ class AdHocNetwork
         Ptr<PositionAllocator> alloc = pos.Create()->GetObject<PositionAllocator>();
         mobility.SetMobilityModel("ns3::RandomWaypointMobilityModel",
                                   "Speed",
-                                  StringValue("ns3::UniformRandomVariable[Min=0.0|Max=100.0]"),
+                                  StringValue("ns3::UniformRandomVariable[Min=0.0|Max=1.0]"),
                                   "Pause",
                                   StringValue("ns3::ConstantRandomVariable[Constant=0.0]"),
                                   "PositionAllocator",
@@ -202,8 +202,8 @@ class AdHocNetwork
 int
 main(int argc, char* argv[])
 {
-    uint32_t backboneNodes = 6;
-    uint32_t infraNodes = 6;
+    uint32_t backboneNodes = 2;
+    uint32_t infraNodes = 2;
     uint32_t stopTime = 10;
     bool useCourseChangeCallback = true;
     SeedManager::SetSeed (time(0));
@@ -246,7 +246,7 @@ main(int argc, char* argv[])
 
     for (size_t i = 0; i < NodeContainer::GetGlobal().GetN(); i++)
     {
-        u_int32_t irand = NodeContainer::GetGlobal().GetN() - (i + 1);
+        u_int32_t irand = rand() % NodeContainer::GetGlobal().GetN();
         Ptr<Node> nodeRand = NodeContainer::GetGlobal().Get(irand);
         Ptr<Ipv4> ipv4Rand = nodeRand->GetObject<Ipv4>();
         Ipv4Address addrRand = ipv4Rand->GetAddress(1, 0).GetLocal();
@@ -303,6 +303,7 @@ main(int argc, char* argv[])
     Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier> (flowMonitorHelper.GetClassifier ());
     std::ofstream myfile("data.csv");
     std::unordered_map<std::string, double> valores;
+    std::unordered_map<std::string, double> cantidades;
     
 
     myfile << "Source Address;Destination Address;TxBytes;RxBytes;FirstTxPacket;LastTxPacket;Duration;Delay;Jitter;LostPackets;TxBitrate;average traffic" << std::endl;
@@ -319,6 +320,7 @@ main(int argc, char* argv[])
         double percentage = (Duration / timemax);
         double average = bitrate * percentage;
         valores[contenido] += percentage * (bitrate);
+        cantidades[contenido] += 1;
 
         myfile 
         << t.sourceAddress 
@@ -339,9 +341,10 @@ main(int argc, char* argv[])
     valores["test"] += 315;
     resumenfile << "Source Address;average traffic" << std::endl;
     for (const auto& par : valores) {
-        resumenfile << par.first << ";" << par.second << std::endl;
+        resumenfile << par.first << ";" << par.second << ";" << cantidades[par.first] << std::endl;
     }
 
+    
     
     resumenfile.close();
     myfile.close();
