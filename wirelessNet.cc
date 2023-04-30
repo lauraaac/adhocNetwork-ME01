@@ -58,6 +58,15 @@
 #include "ns3/string.h"
 #include "ns3/yans-wifi-channel.h"
 #include "ns3/yans-wifi-helper.h"
+#include "ns3/ipv4-global-routing-helper.h"
+#include "ns3/ethernet-header.h"
+#include "ns3/internet-module.h"
+
+#define YELLOW_CODE "\033[33m"
+#define TEAL_CODE "\033[36m"
+#define BOLD_CODE "\033[1m"
+#define RED_CODE "\033[91m"
+#define END_CODE "\033[0m"
 
 using namespace ns3;
 
@@ -80,14 +89,26 @@ CourseChangeCallback(std::string path, Ptr<const MobilityModel> model)
               << model->GetVelocity().z << std::endl;
 }
 
-// CallbackImpl<void,std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char>
-// >,ns3::Ptr<ns3::Packet const> CallbackImpl<void,std::__cxx11::basic_string<char,
-// std::char_traits<char>, std::allocator<char> >,ns3::Ptr<ns3::Packet const>,ns3::Address
+static void
+TxCallback(std::string path, Ptr<const Packet> packet)
+{
+    std::cout << YELLOW_CODE << path << END_CODE << std::endl;
+    EthernetHeader hdr;
+  if (packet->PeekHeader (hdr))
+    {
+      std::cout << "\t" << Now() <<  " Packet from " << hdr.GetSource () << " to " << hdr.GetDestination () << " is experiencing backoff" << std::endl;
+    }
+
+    std::cout << "\t" << Now() << " Packet from " << packet->GetUid() << " is experiencing backoff" << std::endl;
+    std::cout << "\t" << Now() << " Packet dize " << packet->GetSize() << std::endl;
+
+
+}
 
 static void
-RxCallback(std::string path, Ptr<const Packet> packet)
+RxCallback(std::string path, Ptr<const Packet> packet, const Address &address)
 {
-    std::cout << "RxCallback " << packet->GetUid() << std::endl;
+    std::cout << "Se ha recibido un paquete en el nodo con " << packet->GetSize() << " bytes." << std::endl;
 }
 
 class AdHocNetwork
@@ -165,9 +186,9 @@ class AdHocNetwork
         Ptr<PositionAllocator> alloc = pos.Create()->GetObject<PositionAllocator>();
         mobility.SetMobilityModel("ns3::RandomWaypointMobilityModel",
                                   "Speed",
-                                  StringValue("ns3::UniformRandomVariable[Min=0.0|Max=60.0]"),
+                                  StringValue("ns3::UniformRandomVariable[Min=0.0|Max=1.0]"),
                                   "Pause",
-                                  StringValue("ns3::ConstantRandomVariable[Constant=0.2]"),
+                                  StringValue("ns3::ConstantRandomVariable[Constant=0.0]"),
                                   "PositionAllocator",
                                   PointerValue(alloc));
 
@@ -180,8 +201,8 @@ int
 main(int argc, char* argv[])
 {
     uint32_t backboneNodes = 2;
-    uint32_t infraNodes = 1;
-    uint32_t stopTime = 40;
+    uint32_t infraNodes = 2;
+    uint32_t stopTime = 10;
     bool useCourseChangeCallback = true;
 
     CommandLine cmd(__FILE__);
@@ -207,6 +228,7 @@ main(int argc, char* argv[])
     NS_LOG_INFO("Create Applications.");
 
     ApplicationContainer apps;
+    ApplicationContainer sinkApps;
     uint16_t port = 9;
 
     for (uint32_t i = 0; i < backboneNodes; ++i)
@@ -234,6 +256,7 @@ main(int argc, char* argv[])
         std::cout << "Node " << irand << " has address " << addrRand << std::endl;
 
         AddressValue remoteAddress(InetSocketAddress(addrRand, port));
+        PacketSinkHelper sink("ns3::UdpSocketFactory", InetSocketAddress(addr, 5000));
         OnOffHelper onoff("ns3::UdpSocketFactory", addrRand);
         onoff.SetAttribute("Remote", remoteAddress);
         onoff.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"));
@@ -241,13 +264,18 @@ main(int argc, char* argv[])
         onoff.SetAttribute("PacketSize", UintegerValue(1472));
         onoff.SetAttribute("DataRate", StringValue("1Mb/s"));
         apps = onoff.Install(NodeContainer::GetGlobal());
-        apps.Start(Seconds(0.0));
+        sinkApps = sink.Install(NodeContainer::GetGlobal());
+        sinkApps.Start(Seconds(0.0));
+        sinkApps.Stop(Seconds(stopTime));
+        apps.Start(Seconds(3.0));
         apps.Stop(Seconds(stopTime));
     }
 
-
-
-    Config::Connect("/NodeList/*/ApplicationList/0/$ns3::OnOffApplication/Tx", MakeCallback(&RxCallback));
+    // Crear un servidor que escuche en el puerto 5000
+    
+    
+    //Config::Connect("/NodeList/*/ApplicationList/0/$ns3::OnOffApplication/Tx", MakeCallback(&TxCallback));
+    //Config::Connect("/NodeList/*/ApplicationList/1/$ns3::PacketSink/Rx", MakeCallback(&RxCallback));
 
     // Config::Connect("/NodeList/0/$ns3::MobilityModel/CourseChange",
     // MakeCallback(&CourseChangeCallback));
