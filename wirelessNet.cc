@@ -61,6 +61,9 @@
 #include "ns3/ipv4-global-routing-helper.h"
 #include "ns3/ethernet-header.h"
 #include "ns3/internet-module.h"
+#include "ns3/flow-monitor-module.h"
+#include "ns3/rng-seed-manager.h"
+
 
 #define YELLOW_CODE "\033[33m"
 #define TEAL_CODE "\033[36m"
@@ -186,7 +189,7 @@ class AdHocNetwork
         Ptr<PositionAllocator> alloc = pos.Create()->GetObject<PositionAllocator>();
         mobility.SetMobilityModel("ns3::RandomWaypointMobilityModel",
                                   "Speed",
-                                  StringValue("ns3::UniformRandomVariable[Min=0.0|Max=1.0]"),
+                                  StringValue("ns3::UniformRandomVariable[Min=0.0|Max=100.0]"),
                                   "Pause",
                                   StringValue("ns3::ConstantRandomVariable[Constant=0.0]"),
                                   "PositionAllocator",
@@ -204,6 +207,7 @@ main(int argc, char* argv[])
     uint32_t infraNodes = 2;
     uint32_t stopTime = 10;
     bool useCourseChangeCallback = true;
+    SeedManager::SetSeed (time(0));
 
     CommandLine cmd(__FILE__);
     cmd.AddValue("backboneNodes", "number of backbone nodes", backboneNodes);
@@ -241,9 +245,9 @@ main(int argc, char* argv[])
     }
 
 
-    for (size_t i = backboneNodes; i < NodeContainer::GetGlobal().GetN(); i++)
+    for (size_t i = 0; i < NodeContainer::GetGlobal().GetN(); i++)
     {
-        u_int32_t irand = NodeContainer::GetGlobal().GetN() - (i-1);
+        u_int32_t irand = NodeContainer::GetGlobal().GetN() - (i + 1);
         Ptr<Node> nodeRand = NodeContainer::GetGlobal().Get(irand);
         Ptr<Ipv4> ipv4Rand = nodeRand->GetObject<Ipv4>();
         Ipv4Address addrRand = ipv4Rand->GetAddress(1, 0).GetLocal();
@@ -262,7 +266,7 @@ main(int argc, char* argv[])
         onoff.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"));
         onoff.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0]"));
         onoff.SetAttribute("PacketSize", UintegerValue(1472));
-        onoff.SetAttribute("DataRate", StringValue("1Mb/s"));
+        onoff.SetAttribute("DataRate", StringValue("512kb/s"));
         apps = onoff.Install(NodeContainer::GetGlobal());
         sinkApps = sink.Install(NodeContainer::GetGlobal());
         sinkApps.Start(Seconds(0.0));
@@ -270,9 +274,6 @@ main(int argc, char* argv[])
         apps.Start(Seconds(3.0));
         apps.Stop(Seconds(stopTime));
     }
-
-    // Crear un servidor que escuche en el puerto 5000
-    
     
     //Config::Connect("/NodeList/*/ApplicationList/0/$ns3::OnOffApplication/Tx", MakeCallback(&TxCallback));
     //Config::Connect("/NodeList/*/ApplicationList/1/$ns3::PacketSink/Rx", MakeCallback(&RxCallback));
@@ -285,6 +286,8 @@ main(int argc, char* argv[])
     //  apps.Add(sink.Install(NodeContainer::GetGlobal()));
     //  apps.Add(onoff.Install(NodeContainer::GetGlobal()));
 
+    FlowMonitorHelper flowMonitorHelper;
+    Ptr<FlowMonitor> flowMonitor = flowMonitorHelper.InstallAll();
     AnimationInterface anim("mixed-wireless.xml");
     anim.EnableIpv4RouteTracking("mixed-wireless-route-tracking.xml",
                                  Seconds(0),
@@ -295,4 +298,9 @@ main(int argc, char* argv[])
     Simulator::Stop(Seconds(stopTime + 2));
     Simulator::Run();
     Simulator::Destroy();
+
+    flowMonitor->CheckForLostPackets();
+    flowMonitor->SerializeToXmlFile("mixed-wireless-flow-monitor.xml", true, true);
+
+    return 0;
 }
