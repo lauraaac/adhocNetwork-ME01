@@ -63,7 +63,7 @@
 #include "ns3/internet-module.h"
 #include "ns3/flow-monitor-module.h"
 #include "ns3/rng-seed-manager.h"
-
+#include <unordered_map>
 
 #define YELLOW_CODE "\033[33m"
 #define TEAL_CODE "\033[36m"
@@ -113,7 +113,6 @@ NS_LOG_COMPONENT_DEFINE("MixedWireless");
 // {
 //     std::cout << "Se ha recibido un paquete en el nodo con " << packet->GetSize() << " bytes." << std::endl;
 // }
-
 class AdHocNetwork
 {
   public:
@@ -303,27 +302,48 @@ main(int argc, char* argv[])
     std::map<FlowId, FlowMonitor::FlowStats> stats = flowMonitor->GetFlowStats();  
     Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier> (flowMonitorHelper.GetClassifier ());
     std::ofstream myfile("data.csv");
+    std::unordered_map<std::string, double> valores;
+    
 
-    myfile << "Source Address;Destination Address;TxBytes;RxBytes;FirstTxPacket;LastTxPacket;Duration;Delay;Jitter;LostPackets;TxBitrate" << std::endl;
+    myfile << "Source Address;Destination Address;TxBytes;RxBytes;FirstTxPacket;LastTxPacket;Duration;Delay;Jitter;LostPackets;TxBitrate;average traffic" << std::endl;
 
     // Imprimir txBitrate de cada flujo
     for (std::map<FlowId, FlowMonitor::FlowStats>::const_iterator i = stats.begin(); i != stats.end(); ++i) {
         Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow (i->first);
+        std::stringstream buffer;
+        buffer << t.sourceAddress;
+        std::string contenido = buffer.str();
+        double bitrate = (i->second.txBytes * 8.0) / (i->second.timeLastTxPacket.GetSeconds() - i->second.timeFirstTxPacket.GetSeconds()) / 1000;
+        double Duration = i->second.timeLastTxPacket.GetSeconds() - i->second.timeFirstTxPacket.GetSeconds();
+        double timemax = i->second.timeLastTxPacket.GetSeconds();
+        double percentage = (Duration / timemax);
+        double average = bitrate * percentage;
+        valores[contenido] += percentage * (bitrate);
+
         myfile 
         << t.sourceAddress 
         << ";" << t.destinationAddress
         << ";" << i->second.txBytes  
         << ";" << i->second.rxBytes 
         << ";" << i->second.timeFirstTxPacket.GetSeconds() 
-        << ";" << i->second.timeLastTxPacket.GetSeconds()
-        << ";" << i->second.timeLastTxPacket.GetSeconds() - i->second.timeFirstTxPacket.GetSeconds()
+        << ";" << timemax
+        << ";" << Duration
         << ";" << i->second.delaySum.GetSeconds() / i->second.rxPackets
         << ";" << i->second.jitterSum.GetSeconds() / (i->second.rxPackets - 1)
         << ";" << i->second.lostPackets 
-        << ";" << i->second.txBytes * 8.0 / (i->second.timeLastTxPacket.GetSeconds() - i->second.timeFirstTxPacket.GetSeconds()) / 1000 << std::endl;        
-
+        << ";" << bitrate
+        << ";" << average << std::endl;    
     }
 
+    std::ofstream resumenfile("resumen.csv");
+    valores["test"] += 315;
+    resumenfile << "Source Address;average traffic" << std::endl;
+    for (const auto& par : valores) {
+        resumenfile << par.first << ";" << par.second << std::endl;
+    }
+
+    
+    resumenfile.close();
     myfile.close();
     Simulator::Destroy();
     return 0;
