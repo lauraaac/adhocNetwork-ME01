@@ -82,37 +82,37 @@ NS_LOG_COMPONENT_DEFINE("MixedWireless");
 // This function will be used below as a trace sink, if the command-line
 // argument or default value "useCourseChangeCallback" is set to true
 //
-static void
-CourseChangeCallback(std::string path, Ptr<const MobilityModel> model)
-{
-    Vector position = model->GetPosition();
-    std::cout << "CourseChange "
-              << " x=" << position.x << ", y=" << position.y << ", z=" << position.z << " * "
-              << " | " << model->GetVelocity().x << " | " << model->GetVelocity().y << " | "
-              << model->GetVelocity().z << std::endl;
-}
+// static void
+// CourseChangeCallback(std::string path, Ptr<const MobilityModel> model)
+// {
+//     Vector position = model->GetPosition();
+//     std::cout << "CourseChange "
+//               << " x=" << position.x << ", y=" << position.y << ", z=" << position.z << " * "
+//               << " | " << model->GetVelocity().x << " | " << model->GetVelocity().y << " | "
+//               << model->GetVelocity().z << std::endl;
+// }
 
-static void
-TxCallback(std::string path, Ptr<const Packet> packet)
-{
-    std::cout << YELLOW_CODE << path << END_CODE << std::endl;
-    EthernetHeader hdr;
-  if (packet->PeekHeader (hdr))
-    {
-      std::cout << "\t" << Now() <<  " Packet from " << hdr.GetSource () << " to " << hdr.GetDestination () << " is experiencing backoff" << std::endl;
-    }
+// static void
+// TxCallback(std::string path, Ptr<const Packet> packet)
+// {
+//     std::cout << YELLOW_CODE << path << END_CODE << std::endl;
+//     EthernetHeader hdr;
+//   if (packet->PeekHeader (hdr))
+//     {
+//       std::cout << "\t" << Now() <<  " Packet from " << hdr.GetSource () << " to " << hdr.GetDestination () << " is experiencing backoff" << std::endl;
+//     }
 
-    std::cout << "\t" << Now() << " Packet from " << packet->GetUid() << " is experiencing backoff" << std::endl;
-    std::cout << "\t" << Now() << " Packet dize " << packet->GetSize() << std::endl;
+//     std::cout << "\t" << Now() << " Packet from " << packet->GetUid() << " is experiencing backoff" << std::endl;
+//     std::cout << "\t" << Now() << " Packet dize " << packet->GetSize() << std::endl;
 
 
-}
+// }
 
-static void
-RxCallback(std::string path, Ptr<const Packet> packet, const Address &address)
-{
-    std::cout << "Se ha recibido un paquete en el nodo con " << packet->GetSize() << " bytes." << std::endl;
-}
+// static void
+// RxCallback(std::string path, Ptr<const Packet> packet, const Address &address)
+// {
+//     std::cout << "Se ha recibido un paquete en el nodo con " << packet->GetSize() << " bytes." << std::endl;
+// }
 
 class AdHocNetwork
 {
@@ -302,25 +302,28 @@ main(int argc, char* argv[])
     // Obtener estadísticas de flujo
     std::map<FlowId, FlowMonitor::FlowStats> stats = flowMonitor->GetFlowStats();  
     Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier> (flowMonitorHelper.GetClassifier ());
+    std::ofstream myfile("data.csv");
 
+    myfile << "Source Address;TxBytes;RxBytes;FirstTxPacket;LastTxPacket;Duration;Delay;Jitter;LostPackets;TxBitrate" << std::endl;
 
     // Imprimir txBitrate de cada flujo
     for (std::map<FlowId, FlowMonitor::FlowStats>::const_iterator i = stats.begin(); i != stats.end(); ++i) {
         Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow (i->first);
-        std::cout << "--- " << std::endl;
-        std::cout << "Flow ID: " << t.sourceAddress << ", txBitrate: " << i->second.txBytes  << " txBytes received" << std::endl;
-        std::cout << "Time First Packet: " << i->second.timeFirstTxPacket.GetSeconds() << std::endl;
-        std::cout << "Time Last Packet: " << i->second.timeLastTxPacket.GetSeconds() << std::endl;
-        std::cout << "Time of sata send: " << i->second.timeLastTxPacket.GetSeconds() - i->second.timeFirstTxPacket.GetSeconds() << std::endl;
-        std::cout << "Delay: " << i->second.delaySum.GetSeconds() / i->second.rxPackets << std::endl;
-        std::cout << "Jitter: " << i->second.jitterSum.GetSeconds() / (i->second.rxPackets - 1) << std::endl;
-        std::cout << "Lost Packets: " << i->second.lostPackets << std::endl;
-        std::cout << "Tx bitrate: " << i->second.txBytes * 8.0 / (i->second.timeLastTxPacket.GetSeconds() - i->second.timeFirstTxPacket.GetSeconds()) / 1000 << " Kbps" << std::endl;        
+        myfile 
+        << t.sourceAddress 
+        << ";" << i->second.txBytes  
+        << ";" << i->second.rxBytes 
+        << ";" << i->second.timeFirstTxPacket.GetSeconds() 
+        << ";" << i->second.timeLastTxPacket.GetSeconds()
+        << ";" << i->second.timeLastTxPacket.GetSeconds() - i->second.timeFirstTxPacket.GetSeconds()
+        << ";" << i->second.delaySum.GetSeconds() / i->second.rxPackets
+        << ";" << i->second.jitterSum.GetSeconds() / (i->second.rxPackets - 1)
+        << ";" << i->second.lostPackets 
+        << ";" << i->second.txBytes * 8.0 / (i->second.timeLastTxPacket.GetSeconds() - i->second.timeFirstTxPacket.GetSeconds()) / 1000 << std::endl;        
 
     }
 
-   
-    
+    myfile.close();
     Simulator::Destroy();
     return 0;
 }
