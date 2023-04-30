@@ -338,7 +338,6 @@ main(int argc, char* argv[])
     }
 
     std::ofstream resumenfile("resumen.csv");
-    valores["test"] += 315;
     resumenfile << "Source Address;average traffic" << std::endl;
     for (const auto& par : valores) {
         resumenfile << par.first << ";" << par.second << ";" << cantidades[par.first] << std::endl;
