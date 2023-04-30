@@ -203,8 +203,8 @@ class AdHocNetwork
 int
 main(int argc, char* argv[])
 {
-    uint32_t backboneNodes = 2;
-    uint32_t infraNodes = 1;
+    uint32_t backboneNodes = 6;
+    uint32_t infraNodes = 6;
     uint32_t stopTime = 10;
     bool useCourseChangeCallback = true;
     SeedManager::SetSeed (time(0));
@@ -304,13 +304,14 @@ main(int argc, char* argv[])
     Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier> (flowMonitorHelper.GetClassifier ());
     std::ofstream myfile("data.csv");
 
-    myfile << "Source Address;TxBytes;RxBytes;FirstTxPacket;LastTxPacket;Duration;Delay;Jitter;LostPackets;TxBitrate" << std::endl;
+    myfile << "Source Address;Destination Address;TxBytes;RxBytes;FirstTxPacket;LastTxPacket;Duration;Delay;Jitter;LostPackets;TxBitrate" << std::endl;
 
     // Imprimir txBitrate de cada flujo
     for (std::map<FlowId, FlowMonitor::FlowStats>::const_iterator i = stats.begin(); i != stats.end(); ++i) {
         Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow (i->first);
         myfile 
         << t.sourceAddress 
+        << ";" << t.destinationAddress
         << ";" << i->second.txBytes  
         << ";" << i->second.rxBytes 
         << ";" << i->second.timeFirstTxPacket.GetSeconds() 
