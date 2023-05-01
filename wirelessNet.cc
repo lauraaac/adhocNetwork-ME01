@@ -243,7 +243,6 @@ main(int argc, char* argv[])
        
     }
 
-
     for (size_t i = 0; i < NodeContainer::GetGlobal().GetN(); i++)
     {
         u_int32_t irand = (backboneNodes) + (rand() % (NodeContainer::GetGlobal().GetN() - backboneNodes + 1));
@@ -294,6 +293,8 @@ main(int argc, char* argv[])
     std::cout<<"Run Simulation"<<std::endl;
     Simulator::Stop(Seconds(stopTime));
     Simulator::Run();
+
+    std::cout<<"Simulation Done"<<std::endl;
 
     flowMonitor->CheckForLostPackets();
     flowMonitor->SerializeToXmlFile("mixed-wireless-flow-monitor.xml", false, false);
