@@ -113,6 +113,7 @@ NS_LOG_COMPONENT_DEFINE("MixedWireless");
 // {
 //     std::cout << "Se ha recibido un paquete en el nodo con " << packet->GetSize() << " bytes." << std::endl;
 // }
+Ipv4AddressHelper ipAddrs;
 class AdHocNetwork
 {
   public:
@@ -124,7 +125,6 @@ class AdHocNetwork
     YansWifiChannelHelper wifiChannel;
     OlsrHelper olsr;
     InternetStackHelper internet;
-    Ipv4AddressHelper ipAddrs;
     MobilityHelper mobility;
     ObjectFactory pos;
     Ipv4InterfaceContainer interfaces;
@@ -161,9 +161,8 @@ class AdHocNetwork
 
         backbone.Add(parentAdhoc.backbone.Get(i));
         backboneDevices = wifi.Install(wifiPhy, mac, backbone);
-        interfaces = parentAdhoc.ipAddrs.Assign(backboneDevices);
-        ipAddrs = parentAdhoc.ipAddrs; 
-        parentAdhoc.ipAddrs.NewNetwork();
+        interfaces = ipAddrs.Assign(backboneDevices);
+        ipAddrs.NewNetwork();
 
         this->setMobilityModel();
         mobility.PushReferenceMobilityModel(parentAdhoc.backbone.Get(i));
@@ -188,7 +187,7 @@ class AdHocNetwork
         Ptr<PositionAllocator> alloc = pos.Create()->GetObject<PositionAllocator>();
         mobility.SetMobilityModel("ns3::RandomWaypointMobilityModel",
                                   "Speed",
-                                  StringValue("ns3::UniformRandomVariable[Min=0.0|Max=1.0]"),
+                                  StringValue("ns3::UniformRandomVariable[Min=0.0|Max=100.0]"),
                                   "Pause",
                                   StringValue("ns3::ConstantRandomVariable[Constant=0.0]"),
                                   "PositionAllocator",
@@ -202,9 +201,11 @@ class AdHocNetwork
 int
 main(int argc, char* argv[])
 {
-    uint32_t backboneNodes = 6;
-    uint32_t infraNodes = 6;
-    uint32_t stopTime = 10;
+    uint32_t backboneNodes = 2; //Esta es la capa 3
+    uint32_t infraNodes = 2; // cantidad de hijos de cada nodo de la capa 3 | capa 2
+    uint32_t infrainfraNodes = 6; // cantidad de hijos de cada nodo de la capa 2 | capa 1
+    uint32_t stopTime = 20;
+    uint32_t maxapps = 20;
     bool useCourseChangeCallback = true;
     SeedManager::SetSeed (time(0));
 
@@ -232,24 +233,32 @@ main(int argc, char* argv[])
 
     ApplicationContainer apps;
     ApplicationContainer sinkApps;
-    uint16_t port = 9;
+    uint16_t port = 49153;
 
     for (uint32_t i = 0; i < backboneNodes; ++i)
     {
         NS_LOG_INFO("Configuring wireless network for backbone node " << i);
         AdHocNetwork myadhocinfra(myadhoc, infraNodes, i); // Cluster de hijos
+
+        for (uint32_t j= 0; j < infraNodes; j++)
+        {
+            AdHocNetwork myadhocinfra(myadhocinfra, infrainfraNodes, j); // Cluster de hijos
+        }
+        
+
         myadhocinfra.internet.EnableAsciiIpv4All(stream);
         myadhocinfra.wifiPhy.EnablePcap("mixed-wireless", myadhocinfra.backboneDevices, true);
        
     }
 
-    for (size_t i = 0; i < NodeContainer::GetGlobal().GetN(); i++)
+    for (size_t i = 0; i < maxapps; i++)
     {
-        u_int32_t irand = (backboneNodes) + (rand() % (NodeContainer::GetGlobal().GetN() - backboneNodes + 1));
+        u_int32_t irand = rand() % NodeContainer::GetGlobal().GetN() ;
         Ptr<Node> nodeRand = NodeContainer::GetGlobal().Get(irand);
         Ptr<Ipv4> ipv4Rand = nodeRand->GetObject<Ipv4>();
         Ipv4Address addrRand = ipv4Rand->GetAddress(1, 0).GetLocal();
 
+        u_int32_t irandorigin = rand() % NodeContainer::GetGlobal().GetN() ;
         Ptr<Node> node = NodeContainer::GetGlobal().Get(i);
         Ptr<Ipv4> ipv4 = node->GetObject<Ipv4>();
         Ipv4Address addr = ipv4->GetAddress(1, 0).GetLocal();
@@ -262,8 +271,8 @@ main(int argc, char* argv[])
         onoff.SetAttribute("Remote", remoteAddress);
         onoff.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"));
         onoff.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0]"));
-        onoff.SetAttribute("PacketSize", UintegerValue(1472));
-        onoff.SetAttribute("DataRate", StringValue("512kb/s"));
+        onoff.SetAttribute("PacketSize", UintegerValue(2560));
+        onoff.SetAttribute("DataRate", StringValue("5Mb/s"));
         apps = onoff.Install(NodeContainer::GetGlobal());
         apps.Start(Seconds(3.0));
         apps.Stop(Seconds(stopTime));
@@ -284,10 +293,7 @@ main(int argc, char* argv[])
     FlowMonitorHelper flowMonitorHelper;
     Ptr<FlowMonitor> flowMonitor = flowMonitorHelper.InstallAll();
     AnimationInterface anim("mixed-wireless.xml");
-    anim.EnableIpv4RouteTracking("mixed-wireless-route-tracking.xml",
-                                 Seconds(0),
-                                 Seconds(9),
-                                 Seconds(0.25));
+    anim.EnableIpv4RouteTracking("mixed-wireless-route-tracking.xml", Seconds(0), Seconds(9), Seconds(0.25));
 
     NS_LOG_INFO("Run Simulation.");
     std::cout<<"Run Simulation"<<std::endl;
@@ -298,7 +304,7 @@ main(int argc, char* argv[])
 
     flowMonitor->CheckForLostPackets();
     flowMonitor->SerializeToXmlFile("mixed-wireless-flow-monitor.xml", false, false);
-    // Obtener estadísticas de flujo
+    //Obtener estadísticas de flujo
     std::map<FlowId, FlowMonitor::FlowStats> stats = flowMonitor->GetFlowStats();  
     Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier> (flowMonitorHelper.GetClassifier ());
     std::ofstream myfile("data.csv");
