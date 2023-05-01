@@ -234,9 +234,6 @@ main(int argc, char* argv[])
     myadhoc.wifiPhy.EnablePcap("mixed-wireless", myadhoc.backboneDevices, true);
     NS_LOG_INFO("Create Applications.");
 
-    ApplicationContainer apps;
-    ApplicationContainer sinkApps;
-    uint16_t port = 49153;
 
     for (uint32_t i = 0; i < backboneNodes; ++i)
     {
@@ -253,6 +250,10 @@ main(int argc, char* argv[])
         myadhocinfra.wifiPhy.EnablePcap("mixed-wireless", myadhocinfra.backboneDevices, true);
        
     }
+
+    
+    ApplicationContainer apps;
+    uint16_t port = 49153;
 
     for (size_t i = 0; i < maxapps; i++)
     {
@@ -321,7 +322,7 @@ main(int argc, char* argv[])
     for (std::map<FlowId, FlowMonitor::FlowStats>::const_iterator i = stats.begin(); i != stats.end(); ++i) {
         Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow (i->first);
         std::stringstream buffer;
-        buffer << t.sourceAddress << ";" << t.destinationAddress;
+        buffer << t.sourceAddress;
         std::string contenido = buffer.str();
         double bitrate = (i->second.txBytes * 8.0) / (i->second.timeLastTxPacket.GetSeconds() - i->second.timeFirstTxPacket.GetSeconds()) / 1000;
         double Duration = i->second.timeLastTxPacket.GetSeconds() - i->second.timeFirstTxPacket.GetSeconds();
@@ -347,7 +348,7 @@ main(int argc, char* argv[])
     }
 
     std::ofstream resumenfile("resumen.csv");
-    resumenfile << "Source Address;Destination Address;average traffic" << std::endl;
+    resumenfile << "Source Address;average traffic" << std::endl;
     for (const auto& par : valores) {
         resumenfile << par.first << ";" << par.second << ";" << cantidades[par.first] << std::endl;
     }
