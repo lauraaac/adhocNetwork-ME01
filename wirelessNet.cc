@@ -156,7 +156,7 @@ class AdHocNetwork
         wifiChannel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
         wifiChannel.AddPropagationLoss("ns3::FriisPropagationLossModel");
         wifiPhy.SetChannel(wifiChannel.Create());
-        wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager", "DataMode", StringValue ("OfdmRate25Mbps"));
+        wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager", "DataMode", StringValue ("OfdmRate24Mbps"));
 
 
         internet.SetRoutingHelper(parentAdhoc.olsr);
