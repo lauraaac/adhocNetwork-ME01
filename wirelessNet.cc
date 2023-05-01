@@ -138,6 +138,7 @@ class AdHocNetwork
         wifiChannel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
         wifiChannel.AddPropagationLoss("ns3::FriisPropagationLossModel");
         wifiPhy.SetChannel(wifiChannel.Create());
+        wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager", "DataMode", StringValue ("OfdmRate54Mbps"));
 
         backboneDevices = wifi.Install(wifiPhy, mac, backbone);
         internet.SetRoutingHelper(olsr);
@@ -155,6 +156,8 @@ class AdHocNetwork
         wifiChannel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
         wifiChannel.AddPropagationLoss("ns3::FriisPropagationLossModel");
         wifiPhy.SetChannel(wifiChannel.Create());
+        wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager", "DataMode", StringValue ("OfdmRate25Mbps"));
+
 
         internet.SetRoutingHelper(parentAdhoc.olsr);
         parentAdhoc.internet.Install(backbone);
@@ -204,8 +207,8 @@ main(int argc, char* argv[])
     uint32_t backboneNodes = 2; //Esta es la capa 3
     uint32_t infraNodes = 2; // cantidad de hijos de cada nodo de la capa 3 | capa 2
     uint32_t infrainfraNodes = 6; // cantidad de hijos de cada nodo de la capa 2 | capa 1
-    uint32_t stopTime = 20;
-    uint32_t maxapps = 20;
+    uint32_t stopTime = 30;
+    uint32_t maxapps = 30;
     bool useCourseChangeCallback = true;
     SeedManager::SetSeed (time(0));
 
@@ -271,8 +274,8 @@ main(int argc, char* argv[])
         onoff.SetAttribute("Remote", remoteAddress);
         onoff.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"));
         onoff.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0]"));
-        onoff.SetAttribute("PacketSize", UintegerValue(2560));
-        onoff.SetAttribute("DataRate", StringValue("5Mb/s"));
+        onoff.SetAttribute("PacketSize", UintegerValue(512));
+        onoff.SetAttribute("DataRate", StringValue("1Mb/s"));
         apps = onoff.Install(NodeContainer::GetGlobal());
         apps.Start(Seconds(3.0));
         apps.Stop(Seconds(stopTime));
