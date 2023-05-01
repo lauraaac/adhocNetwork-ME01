@@ -246,7 +246,7 @@ main(int argc, char* argv[])
 
     for (size_t i = 0; i < NodeContainer::GetGlobal().GetN(); i++)
     {
-        u_int32_t irand = (backboneNodes+1) + (rand() % (NodeContainer::GetGlobal().GetN() - backboneNodes + 2));
+        u_int32_t irand = (backboneNodes) + (rand() % (NodeContainer::GetGlobal().GetN() - backboneNodes + 1));
         Ptr<Node> nodeRand = NodeContainer::GetGlobal().Get(irand);
         Ptr<Ipv4> ipv4Rand = nodeRand->GetObject<Ipv4>();
         Ipv4Address addrRand = ipv4Rand->GetAddress(1, 0).GetLocal();
@@ -291,22 +291,21 @@ main(int argc, char* argv[])
                                  Seconds(0.25));
 
     NS_LOG_INFO("Run Simulation.");
+    std::cout<<"Run Simulation"<<std::endl;
     Simulator::Stop(Seconds(stopTime));
     Simulator::Run();
 
     flowMonitor->CheckForLostPackets();
     flowMonitor->SerializeToXmlFile("mixed-wireless-flow-monitor.xml", false, false);
-    
-
     // Obtener estadísticas de flujo
     std::map<FlowId, FlowMonitor::FlowStats> stats = flowMonitor->GetFlowStats();  
     Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier> (flowMonitorHelper.GetClassifier ());
     std::ofstream myfile("data.csv");
     std::unordered_map<std::string, double> valores;
     std::unordered_map<std::string, double> cantidades;
-    
-
     myfile << "Source Address;Destination Address;TxBytes;RxBytes;FirstTxPacket;LastTxPacket;Duration;Delay;Jitter;LostPackets;TxBitrate;average traffic" << std::endl;
+
+
 
     // Imprimir txBitrate de cada flujo
     for (std::map<FlowId, FlowMonitor::FlowStats>::const_iterator i = stats.begin(); i != stats.end(); ++i) {
