@@ -204,11 +204,11 @@ class AdHocNetwork
 int
 main(int argc, char* argv[])
 {
-    uint32_t backboneNodes = 2; //Esta es la capa 3
-    uint32_t infraNodes = 2; // cantidad de hijos de cada nodo de la capa 3 | capa 2
-    uint32_t infrainfraNodes = 6; // cantidad de hijos de cada nodo de la capa 2 | capa 1
-    uint32_t stopTime = 30;
-    uint32_t maxapps = 30;
+    uint32_t backboneNodes = 6; //Esta es la capa 3
+    uint32_t infraNodes = 6; // cantidad de hijos de cada nodo de la capa 3 | capa 2
+    uint32_t infrainfraNodes = 0; // cantidad de hijos de cada nodo de la capa 2 | capa 1
+    uint32_t stopTime = 100;
+    uint32_t maxapps = 24;
     bool useCourseChangeCallback = true;
     SeedManager::SetSeed (time(0));
 
@@ -242,7 +242,11 @@ main(int argc, char* argv[])
 
         for (uint32_t j= 0; j < infraNodes; j++)
         {
-            AdHocNetwork myadhocinfra(myadhocinfra, infrainfraNodes, j); // Cluster de hijos
+            if (infrainfraNodes > 0)
+            {
+                AdHocNetwork myadhocinfra(myadhocinfra, infrainfraNodes, j); // Cluster de hijos
+            }
+            
         }
         
 
